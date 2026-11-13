@@ -213,7 +213,7 @@
       var nm = '<input aria-label="اسم الدور" list="dl_roles" autocomplete="off" placeholder="اسم الدور" data-chg="rolename" data-id="' + h(id) + '" data-i="' + i + '" value="' + h(r.role) + '" style="min-height:44px;width:150px;background:var(--p2);border:1px solid var(--ln);border-radius:12px;padding:0 10px">';
       return '<div><span class="acts">' + nm + sel + '</span><span class="acts">' + (u ? '<a class="btn sm" target="_blank" rel="noopener" href="' + h(waLink(u, cl.name)) + '">شو صار معك؟ · واتساب</a>' : '') + btn('حذف', 'delRole', { id: id, i: i }, 'sm') + '</span></div>';
     }).join('') + '</div><datalist id="dl_roles">' + rl.map(function (x) { return '<option value="' + h(x) + '">'; }).join('') + '</datalist>' + btn('+ إضافة دور', 'addRole', { id: id }, 'sm');
-    var c = head(cl.name, (cl.kind === 'project' ? 'مشروع' : 'إدارة صفحات') + (e ? ' · ينتهي ' + dateAr(e) : ''), btn('تعديل', 'editClient', { id: id }) + clientLoginBtn(cl) + btn('+ حركة مالية', 'addMove', { client: id }, 'pri'));
+    var c = head(cl.name, (cl.kind === 'project' ? 'مشروع' : 'إدارة صفحات') + (e ? ' · ينتهي ' + dateAr(e) : ''), btn('تعديل', 'editClient', { id: id }) + clientLoginBtn(cl) + (ONLINE && clientUser(cl) ? btn('إرسال إشعار', 'sendNote', { client: id }) : '') + btn('+ حركة مالية', 'addMove', { client: id }, 'pri'));
     var allIn = sum(mv.filter(function (m) { return m.dir === 'in'; }), function (m) { return m.usd; }), mths = num(cl.months);
     var total = cl.kind === 'project' ? num(cl.value) : (mths ? num(cl.value) * mths : 0);
     c += '<div class="kpis">' + kpi('قيمة العقد', usd(total || num(cl.value)), false, cl.kind === 'project' ? 'للمشروع' : (mths ? usd(num(cl.value)) + ' شهرياً × ' + mths + ' أشهر' : 'شهرياً · المدة غير محددة')) +
@@ -235,7 +235,7 @@
       var d = memberDue(u), open = db.tasks.filter(function (t) { return t.user_id === u.id && !t.done; }).length;
       return tile(u.name + ' · ' + (u.title || 'عضو'), (u.active === false ? 'موقوف' : (u.kind === 'employee' ? 'موظف' : 'فريلانسر')) + ' · المتبقي له <span class="ltr">' + h(usd(d.left)) + '</span>',
         rows([['الهاتف', '<span class="ltr">' + h(u.phone) + '</span>'], ['قيمة العقد', '<span class="ltr">' + h(usd(d.contract)) + '</span>'], ['المدفوع', '<span class="ltr">' + h(usd(d.paid)) + '</span>'], ['المتبقي', '<span class="ltr">' + h(usd(d.left)) + '</span>'], ['مهام مفتوحة', String(open)]]) +
-        '<div class="acts"><a class="btn sm" target="_blank" rel="noopener" href="' + h(waLink(u)) + '">شو صار معك؟ · واتساب</a>' + btn('دفع له', 'addMove', { user: u.id }, 'sm') + btn('تعديل', 'editMember', { id: u.id }, 'sm') + btn(u.active === false ? 'تفعيل' : 'إيقاف', 'toggleMember', { id: u.id }, 'sm') + '</div>');
+        '<div class="acts"><a class="btn sm" target="_blank" rel="noopener" href="' + h(waLink(u)) + '">شو صار معك؟ · واتساب</a>' + btn('دفع له', 'addMove', { user: u.id }, 'sm') + (ONLINE ? btn('إرسال إشعار', 'sendNote', { uid: u.id }, 'sm') : '') + btn('تعديل', 'editMember', { id: u.id }, 'sm') + btn(u.active === false ? 'تفعيل' : 'إيقاف', 'toggleMember', { id: u.id }, 'sm') + '</div>');
     }).join('') + '</div>' : '<p class="empty">لا أعضاء بعد. أضف أول عضو من الزر في الأعلى.</p>';
     return shell(c);
   }
@@ -288,9 +288,9 @@
 
   /* ---------- النوافذ ---------- */
   var formCb = null;
-  function openForm(title, fields, cb, note) {
+  function openForm(title, fields, cb, note, okLabel) {
     formCb = cb;
-    var out = '<div class="dlg" role="dialog" aria-modal="true" aria-label="' + h(title) + '"><h2>' + h(title) + '</h2>' + (note ? '<p class="mu">' + h(note) + '</p>' : '') + '<form class="form" data-form="modal">';
+    var out = '<div class="dlg" role="dialog" aria-modal="true" aria-label="' + h(title) + '"><h2>' + h(title) + '</h2>' + (note ? (note.html ? '<div class="mu">' + note.html + '</div>' : '<p class="mu">' + h(note) + '</p>') : '') + '<form class="form" data-form="modal">';
     fields.forEach(function (f) {
       var id = 'm_' + f.k, el;
       if (f.type === 'select') el = '<select id="' + id + '" name="' + f.k + '">' + f.options.map(function (o) { return '<option value="' + h(o[0]) + '"' + (String(f.value) === String(o[0]) ? ' selected' : '') + '>' + h(o[1]) + '</option>'; }).join('') + '</select>';
@@ -298,7 +298,7 @@
       else el = '<input id="' + id + '" name="' + f.k + '" type="' + (f.type || 'text') + '" value="' + h(f.value == null ? '' : f.value) + '"' + (f.req ? ' required' : '') + (f.ph ? ' placeholder="' + h(f.ph) + '"' : '') + (f.type === 'number' ? ' step="any" min="0" inputmode="decimal"' : '') + (f.list ? ' list="dl_' + f.k + '" autocomplete="off"' : '') + '>' + (f.list ? '<datalist id="dl_' + f.k + '">' + f.list.map(function (o) { return '<option value="' + h(o) + '">'; }).join('') + '</datalist>' : '');
       out += '<div class="fld' + (f.wide ? ' wide' : '') + '"><label for="' + id + '">' + h(f.label) + '</label>' + el + '</div>';
     });
-    out += '<div class="fld wide"><p class="err" id="merr"></p><div class="acts"><button class="btn pri" type="submit">حفظ</button>' + btn('إلغاء', 'close') + '</div></div></form></div>';
+    out += '<div class="fld wide"><p class="err" id="merr"></p><div class="acts"><button class="btn pri" type="submit">' + h(okLabel || 'حفظ') + '</button>' + btn('إلغاء', 'close') + '</div></div></form></div>';
     var m = document.getElementById('modal'); m.innerHTML = out; m.hidden = false;
     var first = m.querySelector('input,select,textarea'); if (first) first.focus();
   }
@@ -492,7 +492,7 @@
   function itemActs(key, m, it) { return '<div class="acts">' + (m.noEdit && it.status ? '' : statusSel(m, it)) + (m.acts ? m.acts(it) : '') + (m.noEdit ? '' : btn('تعديل', 'editItem', { mod: key, id: it.id }, 'sm')) + (m.noDelete ? '' : btn('حذف', 'delItem', { id: it.id }, 'sm')) + '</div>'; }
   function vMod(key) {
     var m = MODS[key], all = items(m.kind), f = mstate.filter[key] || '', tg = mstate.tag[key] || '';
-    var c = head(m.title, m.sub, btn(m.add, 'addItem', { mod: key }, 'pri'));
+    var c = head(m.title, m.sub, (key === 'content' ? btn('تحميل قالب إكسل', 'xlTemplate') + '<label class="btn" for="xlfile">رفع ملف إكسل</label><input id="xlfile" type="file" accept=".xlsx" data-chg="xlfile" hidden>' : '') + btn(m.add, 'addItem', { mod: key }, 'pri'));
     if (ONLINE && SRV.itemsMissing && SRV.itemsMissing()) c += '<p class="warn">هذا القسم يحتاج تحديث قاعدة البيانات: شغّل ملف schema2.sql في Supabase (SQL Editor) مرة واحدة ثم أعد فتح التطبيق.</p>';
     c += '<div class="kpis">' + m.kpis(all) + '</div>';
     var list = all.filter(function (x) { return (!f || x.status === f) && (!tg || tags(x[m.tagField]).indexOf(tg) >= 0); });
@@ -750,6 +750,210 @@
     pushTest: function () { pushSub(true).then(function () { return SRV.notify([{ to: [me().id], title: 'أهلاً ' + (me().gender === 'f' ? 'أستاذة ' : 'أستاذ ') + me().name + ' 🔔', body: 'الإشعارات شغالة على هذا الجهاز.' }]); }).then(function (r) { toast(r && r.sent ? 'انبعت الإشعار' : 'ما وصل شي. تأكد إنه دالة الإشعارات منشورة بـ Supabase.'); }, function (e) { toast('تعذر الإرسال: ' + e.message); }); }
   });
 
+
+  /* ---------- إرسال إشعار يدوي برسائل جاهزة ---------- */
+  function notePresets(u, cl) {
+    var f = u && u.gender === 'f', sr = (f ? 'أستاذة ' : 'أستاذ ') + (u ? u.name : ''), k = f ? 'كِ' : 'ك';
+    if (cl) {
+      var paid = sum(db.moves.filter(function (m) { return live(m) && m.client_id === cl.id && m.dir === 'in'; }), function (m) { return m.usd; }), nx = schedule(cl, paid)[0];
+      return [
+        ['what', 'شو صار معكم؟', 'شو صار معكم؟ 👀', 'السلام عليكم ' + sr + '، حبينا نطمّن عليكم ونشوف إذا في شي بدكم ياه منا.'],
+        ['due', 'تذكير بالدفعة الجاية', 'تذكير بالدفعة 🗓️', sr + '، تذكير لطيف: الدفعة الجاية' + (nx ? ' بتاريخ ' + dateAr(nx.date) + ' بقيمة ' + usd(nx.usd) : '') + '. شكراً لتعاونكم.'],
+        ['got', 'وصلتنا دفعتكم', 'وصلتنا دفعتكم 🙏', sr + '، وصلتنا الدفعة، شكراً لثقتكم.'],
+        ['approve', 'محتوى بانتظار موافقتكم', 'بانتظار موافقتكم ✍️', sr + '، في محتوى جاهز وبانتظار موافقتكم. فوتوا على البوابة وشوفوه.'],
+        ['plan', 'خطة الشهر جاهزة', 'خطة النشر جاهزة 📅', sr + '، خطة النشر لهالشهر صارت جاهزة على البوابة.']
+      ];
+    }
+    return [
+      ['what', 'شو صار مع' + k + '؟', 'شو صار مع' + k + '؟ 👀', 'السلام عليكم ' + sr + '، حبيت أطمّن شو صار مع' + k + ' بالشغل. يعطي' + k + ' العافية.'],
+      ['paid', 'وصل' + k + ' الدفع؟', 'وصل' + k + ' الدفع؟ 💸', sr + '، سجّلنا دفعة إل' + k + '. طمّني إذا وصلت' + k + '.'],
+      ['task', 'عند' + k + ' مهمة جديدة', 'مهمة جديدة 📋', sr + '، في مهمة جديدة إل' + k + ' على النظام، فوت' + (f ? 'ي' : '') + ' شوفها.'],
+      ['due', 'تذكير بموعد التسليم', 'تذكير بالتسليم ⏰', sr + '، تذكير بموعد تسليم مهام' + k + '. إذا في شي معطّل' + k + ' خبّرني.'],
+      ['thanks', 'يعطي' + k + ' العافية', 'يعطي' + k + ' العافية 🌟', sr + '، شكراً على شغل' + k + '، يعطي' + k + ' العافية.']
+    ];
+  }
+  function sendNoteForm(u, cl) {
+    var ps = notePresets(u, cl), to = cl ? { client: cl.id } : [u.id];
+    openForm('إرسال إشعار إلى ' + (cl ? cl.name : u.name), [
+      { k: 'kind', label: 'الرسالة', type: 'select', options: ps.map(function (p) { return [p[0], p[1]]; }).concat([['other', 'رسالة أخرى…']]), value: ps[0][0], wide: true },
+      { k: 'text', label: 'نص الإشعار (فيك تعدّله)', type: 'area', value: ps[0][3], wide: true, req: true }
+    ], function (v) {
+      var p = ps.filter(function (x) { return x[0] === v.kind; })[0], body = String(v.text || '').trim();
+      if (!body) return { err: 'اكتب نص الرسالة.' };
+      return SRV.notify([{ to: to, title: p ? p[2] : 'رسالة من شفق ميديا 💬', body: body, tag: 'note' }]).then(function (r) {
+        if (r && r.sent) return 'انبعت الإشعار ✓';
+        return { err: r ? 'ما وصل: ' + (cl ? 'العميل' : (u.gender === 'f' ? 'هي' : 'هو')) + ' لسا ما فعّل الإشعارات على جهازه. فيك تبعتله واتساب بدالها.' : 'تعذر الإرسال. تأكد من الإنترنت ومن دالة push.' };
+      });
+    }, 'الإشعار بيوصل على جهاز الشخص إذا كان مفعّل الإشعارات.');
+    var sel = document.getElementById('m_kind'), ta = document.getElementById('m_text');
+    if (sel && ta) sel.addEventListener('change', function () { var p = ps.filter(function (x) { return x[0] === sel.value; })[0]; ta.value = p ? p[3] : ''; if (!p) ta.focus(); });
+  }
+  Object.assign(acts, {
+    sendNote: function (d) {
+      if (d.client) { var cl = byId('clients', d.client); return sendNoteForm(clientUser(cl), cl); }
+      sendNoteForm(byId('users', d.uid), null);
+    }
+  });
+
+
+  /* ---------- خطة المحتوى من ملف إكسل ---------- */
+  var XL_COLS = ['التاريخ', 'الساعة', 'العميل', 'النوع', 'العنوان', 'المسؤول', 'الحالة', 'ملاحظات'];
+  var XL_TYPES = ['بوست', 'ريل', 'كاروسيل', 'ستوري', 'منشور الجمعة'];
+  var CRC = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(b) { var c = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zipStore(files) { // ملف zip بدون ضغط، يكفي لقالب صغير
+    var enc = new TextEncoder(), parts = [], central = [], off = 0;
+    function u16(v) { return [v & 255, (v >> 8) & 255]; }
+    function u32(v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; }
+    files.forEach(function (f) {
+      var name = enc.encode(f[0]), data = enc.encode(f[1]), crc = crc32(data);
+      var head = [].concat([0x50, 0x4b, 3, 4], u16(20), u16(0x800), u16(0), u16(0), u16(0x21), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0));
+      parts.push(new Uint8Array(head), name, data);
+      central.push(new Uint8Array([].concat([0x50, 0x4b, 1, 2], u16(20), u16(20), u16(0x800), u16(0), u16(0), u16(0x21), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(off))), name);
+      off += head.length + name.length + data.length;
+    });
+    var csize = central.reduce(function (a, b) { return a + b.length; }, 0);
+    var end = new Uint8Array([].concat([0x50, 0x4b, 5, 6], u16(0), u16(0), u16(files.length), u16(files.length), u32(csize), u32(off), u16(0)));
+    return new Blob(parts.concat(central, [end]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+  function xesc(v) { return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function xlCol(i) { var s = ''; i++; while (i) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+  function xlTemplateFiles() {
+    var team = db.users.filter(function (u) { return u.active !== false && u.role !== 'client'; }).map(function (u) { return u.name; });
+    var lists = [['العملاء', db.clients.map(function (c) { return c.name; })], ['النوع', XL_TYPES], ['المسؤول', team], ['الحالة', MODS.content.statuses]];
+    var cell = function (r, c, v, st) { return '<c r="' + xlCol(c) + r + '" t="inlineStr"' + (st ? ' s="' + st + '"' : '') + '><is><t>' + xesc(v) + '</t></is></c>'; };
+    var head = '<row r="1">' + XL_COLS.map(function (t, i) { return cell(1, i, t, 1); }).join('') + '</row>';
+    var widths = [14, 10, 22, 14, 40, 18, 16, 36];
+    var dv = [[2, 0], [3, 1], [5, 2], [6, 3]].map(function (x) { var L = lists[x[1]], n = Math.max(2, L[1].length + 1); return '<dataValidation type="list" allowBlank="1" showErrorMessage="0" sqref="' + xlCol(x[0]) + '2:' + xlCol(x[0]) + '1000"><formula1>\'القوائم\'!$' + xlCol(x[1]) + '$2:$' + xlCol(x[1]) + '$' + n + '</formula1></dataValidation>'; }).join('');
+    var sheet1 = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>' + widths.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"' + (i === 0 ? ' style="2"' : i === 1 ? ' style="3"' : '') + '/>'; }).join('') + '</cols><sheetData>' + head + '</sheetData><dataValidations count="4">' + dv + '</dataValidations></worksheet>';
+    var maxL = Math.max.apply(null, lists.map(function (l) { return l[1].length; }));
+    var rows = '';
+    for (var r = 0; r <= maxL; r++) { rows += '<row r="' + (r + 1) + '">' + lists.map(function (l, i) { var v = r === 0 ? l[0] : l[1][r - 1]; return v == null ? '' : cell(r + 1, i, v, r === 0 ? 1 : 0); }).join('') + '</row>'; }
+    var sheet2 = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView rightToLeft="1" workbookViewId="0"/></sheetViews><cols><col min="1" max="4" width="24" customWidth="1"/></cols><sheetData>' + rows + '</sheetData></worksheet>';
+    var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="hh:mm"/></numFmts><fonts count="2"><font><sz val="12"/><name val="Arial"/></font><font><b/><sz val="12"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFC6F432"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="4"><xf/><xf fontId="1" fillId="2" applyFont="1" applyFill="1"/><xf numFmtId="164" applyNumberFormat="1"/><xf numFmtId="165" applyNumberFormat="1"/></cellXfs></styleSheet>';
+    return [
+      ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+      ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+      ['xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="الخطة" sheetId="1" r:id="rId1"/><sheet name="القوائم" sheetId="2" r:id="rId2"/></sheets></workbook>'],
+      ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+      ['xl/styles.xml', styles], ['xl/worksheets/sheet1.xml', sheet1], ['xl/worksheets/sheet2.xml', sheet2]
+    ];
+  }
+  function xlTemplate() {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(zipStore(xlTemplateFiles())); a.download = 'خطة-المحتوى-شفق.xlsx';
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  /* قراءة ملف xlsx */
+  function unzip(buf) {
+    var b = new Uint8Array(buf), dv = new DataView(buf), e = b.length - 22;
+    while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+    if (e < 0) return Promise.reject(new Error('الملف مو ملف إكسل (xlsx).'));
+    var n = dv.getUint16(e + 10, true), p = dv.getUint32(e + 16, true), out = {}, jobs = [], dec = new TextDecoder();
+    for (var i = 0; i < n; i++) {
+      var method = dv.getUint16(p + 10, true), csz = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+      var name = dec.decode(b.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
+      if (!/\.(xml|rels)$/.test(name)) continue;
+      var start = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), data = b.subarray(start, start + csz);
+      jobs.push((function (name, data, method) {
+        if (method === 0) { out[name] = dec.decode(data); return Promise.resolve(); }
+        if (typeof DecompressionStream === 'undefined') return Promise.reject(new Error('المتصفح قديم. افتح النظام بكروم أو إيدج.'));
+        return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text().then(function (t) { out[name] = t; });
+      })(name, data, method));
+    }
+    return Promise.all(jobs).then(function () { return out; });
+  }
+  function xmlDoc(t) { return new DOMParser().parseFromString(t, 'application/xml'); }
+  function byTag(d, tag) { return Array.prototype.slice.call(d.getElementsByTagNameNS('*', tag)); }
+  function readXlsx(file) {
+    return file.arrayBuffer().then(unzip).then(function (z) {
+      var wb = xmlDoc(z['xl/workbook.xml'] || '<w/>'), sheets = byTag(wb, 'sheet');
+      if (!sheets.length) throw new Error('ما لقيت صفحات بالملف.');
+      var rid = sheets[0].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') || sheets[0].getAttribute('r:id');
+      var target = 'worksheets/sheet1.xml';
+      byTag(xmlDoc(z['xl/_rels/workbook.xml.rels'] || '<r/>'), 'Relationship').forEach(function (r) { if (r.getAttribute('Id') === rid) target = r.getAttribute('Target'); });
+      target = target.replace(/^\/?xl\//, '').replace(/^\//, '');
+      var ss = z['xl/sharedStrings.xml'] ? byTag(xmlDoc(z['xl/sharedStrings.xml']), 'si').map(function (si) { return byTag(si, 't').map(function (t) { return t.textContent; }).join(''); }) : [];
+      var sh = xmlDoc(z['xl/' + target] || '<w/>'), rows = [];
+      byTag(sh, 'row').forEach(function (row) {
+        var r = [];
+        byTag(row, 'c').forEach(function (c) {
+          var ref = c.getAttribute('r') || '', col = 0, m = ref.match(/^[A-Z]+/);
+          if (m) { for (var i = 0; i < m[0].length; i++) col = col * 26 + m[0].charCodeAt(i) - 64; col--; } else col = r.length;
+          var t = c.getAttribute('t'), v = byTag(c, 'v')[0], val;
+          if (t === 's') val = ss[+(v ? v.textContent : 0)] || '';
+          else if (t === 'inlineStr') val = byTag(c, 't').map(function (x) { return x.textContent; }).join('');
+          else val = v ? v.textContent : '';
+          if (t !== 's' && t !== 'inlineStr' && t !== 'str' && val !== '' && !isNaN(+val)) val = +val;
+          r[col] = val;
+        });
+        rows.push(r);
+      });
+      return rows;
+    });
+  }
+  function normAr(s) { return String(s == null ? '' : s).trim().toLowerCase().replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[ً-ْـ]/g, '').replace(/\s+/g, ' '); }
+  function findBy(list, name, get) {
+    var n = normAr(name); if (!n) return null;
+    return list.filter(function (x) { return normAr(get(x)) === n; })[0] || list.filter(function (x) { var g = normAr(get(x)); return g && (g.indexOf(n) >= 0 || n.indexOf(g) >= 0); })[0] || null;
+  }
+  function arDigits(s) { return String(s == null ? '' : s).trim().replace(/[٠-٩]/g, function (c) { return c.charCodeAt(0) - 1632; }); }
+  function xlDate(v) {
+    if (typeof v === 'number') return new Date(Math.round((v - 25569) * 864e5)).toISOString().slice(0, 10);
+    var s = arDigits(v), m;
+    if ((m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+    if ((m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))) return (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+    return '';
+  }
+  function xlTime(v) {
+    if (typeof v === 'number') { var mins = Math.round((v % 1) * 1440); return ('0' + (Math.floor(mins / 60) % 24)).slice(-2) + ':' + ('0' + (mins % 60)).slice(-2); }
+    var s = arDigits(v), m = s.match(/(\d{1,2})(?::(\d{2}))?\s*(ص|م|am|pm)?/i);
+    if (!s || !m) return '';
+    var hh = +m[1], suf = m[3] || '';
+    if (/م|pm/i.test(suf) && hh < 12) hh += 12;
+    if (/ص|am/i.test(suf) && hh === 12) hh = 0;
+    return ('0' + hh).slice(-2) + ':' + (m[2] || '00');
+  }
+  function planFromRows(rows) {
+    var hi = -1, map = {};
+    for (var i = 0; i < Math.min(rows.length, 10) && hi < 0; i++) { if ((rows[i] || []).some(function (x) { return normAr(x) === normAr('العنوان'); })) hi = i; }
+    if (hi < 0) throw new Error('ما لقيت عمود «العنوان». استعمل قالب شفق، أو خلّي أول سطر فيه أسماء الأعمدة.');
+    (rows[hi] || []).forEach(function (x, i) { XL_COLS.forEach(function (c) { if (normAr(x) === normAr(c)) map[c] = i; }); });
+    var team = db.users.filter(function (u) { return u.role !== 'client'; }), ok = [], dup = 0, warn = [], seen = {};
+    items('post').forEach(function (p) { seen[(p.client_id || '') + '|' + (p.date || '') + '|' + normAr(p.name)] = 1; });
+    rows.slice(hi + 1).forEach(function (r, i) {
+      r = r || [];
+      var g = function (c) { var v = map[c] == null ? '' : r[map[c]]; return v == null ? '' : v; }, line = hi + i + 2;
+      var name = String(g('العنوان')).trim(); if (!name) return;
+      var cl = findBy(db.clients, g('العميل'), function (x) { return x.name; }), ow = findBy(team, g('المسؤول'), function (x) { return x.name; });
+      var type = findBy(XL_TYPES, g('النوع'), function (x) { return x; }) || (String(g('النوع')).trim() || 'بوست');
+      var st = findBy(MODS.content.statuses, g('الحالة'), function (x) { return x; }) || 'فكرة';
+      var date = xlDate(g('التاريخ')), time = xlTime(g('الساعة'));
+      if (g('العميل') !== '' && !cl) warn.push('سطر ' + line + ': العميل «' + g('العميل') + '» مو موجود، انضاف بدون عميل');
+      if (g('المسؤول') !== '' && !ow) warn.push('سطر ' + line + ': «' + g('المسؤول') + '» مو من الفريق');
+      if (g('التاريخ') !== '' && !date) warn.push('سطر ' + line + ': التاريخ «' + g('التاريخ') + '» مو مفهوم');
+      var key = (cl ? cl.id : '') + '|' + date + '|' + normAr(name);
+      if (seen[key]) { dup++; return; }
+      seen[key] = 1;
+      ok.push({ id: uid(), kind: 'post', status: st, created: today(), name: name, client_id: cl ? cl.id : '', type: type, owner: ow ? ow.id : '', date: date, time: time, notes: String(g('ملاحظات')).trim() });
+    });
+    return { ok: ok, dup: dup, warn: warn };
+  }
+  function importPlan(file) {
+    readXlsx(file).then(function (rows) {
+      var res = planFromRows(rows), ok = res.ok;
+      if (!ok.length && !res.dup) throw new Error('الملف ما فيه منشورات. عبّي عمود «العنوان» على الأقل.');
+      var byC = {}; ok.forEach(function (p) { var n = p.client_id ? clientName(p.client_id) : 'بدون عميل'; byC[n] = (byC[n] || 0) + 1; });
+      var html = '<p><b>' + ok.length + '</b> منشور جاهز للإضافة' + (res.dup ? ' · <b>' + res.dup + '</b> موجود من قبل وما رح يتكرر' : '') + '</p>' +
+        (ok.length ? '<p>' + Object.keys(byC).map(function (k) { return h(k) + ': ' + byC[k]; }).join(' · ') + '</p>' : '') +
+        (res.warn.length ? '<p class="warn">' + res.warn.slice(0, 8).map(h).join('<br>') + (res.warn.length > 8 ? '<br>و' + (res.warn.length - 8) + ' ملاحظات تانية' : '') + '</p>' : '');
+      openForm('استيراد خطة المحتوى', [], function () {
+        if (!ok.length) return 'ما في شي جديد';
+        db.items = db.items.concat(ok); return 'انضاف ' + ok.length + ' منشور للخطة';
+      }, { html: html }, ok.length ? 'إضافة ' + ok.length + ' منشور' : 'تمام');
+    }).catch(function (e) { toast('تعذر قراءة الملف: ' + (e && e.message || e)); });
+  }
+  Object.assign(acts, { xlTemplate: function () { xlTemplate(); toast('تنزّل القالب. عبّيه وارجع ارفعه من «رفع ملف إكسل»'); } });
+
   /* ---------- الأحداث ---------- */
   function formVals(f) { var v = {}; Array.prototype.forEach.call(f.elements, function (e) { if (e.name) v[e.name] = e.value; }); return v; }
   document.addEventListener('click', function (e) {
@@ -765,6 +969,7 @@
     if (k === 'istatus' && isMgr()) { var it = byId('items', el.dataset.id); if (it) { var was = it.status; it.status = el.value; save(); render(); if (it.kind === 'post' && el.value === 'منشور' && was !== 'منشور' && it.client_id) notify([{ to: { client: it.client_id }, title: 'نزل منشور جديد 🎉', body: '«' + (it.name || '') + '»' + (it.type ? ' · ' + it.type : ''), tag: 'post' }]); } }
     if ((k === 'rolename' || k === 'roleuser') && isMgr()) { var c = byId('clients', el.dataset.id), rs = normRoles(c).slice(), i = +el.dataset.i; rs[i] = Object.assign({}, rs[i]); rs[i][k === 'rolename' ? 'role' : 'user'] = k === 'rolename' ? el.value.trim() : el.value; c.roles = rs; save(); render(); }
     if (k === 'shafqph' && isMgr()) { db.settings.shafq_phone = el.value.trim(); save(); render(); toast('حُفظ رقم شفق'); }
+    if (k === 'xlfile' && isMgr() && el.files[0]) { importPlan(el.files[0]); el.value = ''; }
     if (k === 'photo' && el.files[0]) { var rd = new FileReader(); rd.onload = function () { var img = new Image(); img.onload = function () { var s = 256, cv = document.createElement('canvas'); cv.width = cv.height = s; var m = Math.min(img.width, img.height); cv.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, s, s); me().photo = cv.toDataURL('image/jpeg', 0.85); save(); render(); toast('حُفظت الصورة'); }; img.src = rd.result; }; rd.readAsDataURL(el.files[0]); }
     if (k === 'restore' && isMgr() && el.files[0]) { var fr = new FileReader(); fr.onload = function () { try { var d = JSON.parse(fr.result); if (!d.users || !d.moves) throw 0; if (!confirm('استرجاع النسخة يستبدل كل البيانات الحالية. متابعة؟')) return; localStorage.setItem(KEY, JSON.stringify(d)); load(); render(); toast('تم الاسترجاع'); } catch (x) { toast('الملف غير صالح'); } }; fr.readAsText(el.files[0]); }
   });
