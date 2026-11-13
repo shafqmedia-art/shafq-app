@@ -131,3 +131,60 @@ main{flex:999 1 560px;min-width:0;padding:24px 32px 40px;display:flex;flex-direc
 .post.done>span:nth-child(3){color:var(--mu)}
 .portal .kpi.hi b{font-size:26px;line-height:1.3}
 .pushbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;background:var(--p);border:1px solid var(--ac);border-radius:16px;padding:12px 16px;font-size:14px;margin-bottom:16px}
+
+/* ---------- شاشة البداية ---------- */
+html.intro-on, html.intro-on body{overflow:hidden}
+#intro{position:fixed;inset:0;z-index:100;background:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .55s ease, transform .55s ease;font-family:Cairo,system-ui,sans-serif}
+#intro.out{opacity:0;transform:scale(1.04);pointer-events:none}
+#intro .i-glow{position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(195,250,79,.22),rgba(195,250,79,0) 65%);animation:iglow 2.4s ease-out both}
+#intro .i-box{position:relative;width:132px;height:132px;border-radius:34px;background:#C3FA4F;display:flex;align-items:center;justify-content:center;box-shadow:0 18px 50px rgba(195,250,79,.25);animation:ibox .7s cubic-bezier(.2,1.3,.4,1) both}
+#intro .i-box img{height:76%;width:auto;animation:ilogo .9s .15s ease-out both}
+#intro .i-word{position:relative;height:84px;display:flex;align-items:center}
+#intro #i-text{font-size:64px;font-weight:900;color:#F5F5F0;line-height:1;display:inline-block}
+#intro #i-text.pop{animation:ipop .35s ease-out}
+#intro .i-sub{position:relative;font-size:18px;font-weight:700;letter-spacing:.3em;color:#C3FA4F;opacity:0;animation:isub .6s 1.35s ease-out forwards}
+@keyframes ibox{from{transform:scale(.4) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+@keyframes ilogo{from{transform:translateY(10px);opacity:0}to{transform:none;opacity:1}}
+@keyframes ipop{from{transform:translateY(8px);filter:blur(4px);opacity:.3}to{transform:none;filter:none;opacity:1}}
+@keyframes isub{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes iglow{from{transform:scale(.5);opacity:0}60%{opacity:1}to{transform:scale(1.15);opacity:.7}}
+
+/* ---------- شاشة التحميل ---------- */
+.loading{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;animation:fade .4s ease both}
+.l-ring{position:relative;width:110px;height:110px;border-radius:30px;background:var(--p);display:flex;align-items:center;justify-content:center}
+.l-ring::before{content:"";position:absolute;inset:-6px;border-radius:36px;padding:3px;background:conic-gradient(from 0deg,var(--ac),transparent 70%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:spin 1.1s linear infinite}
+.l-ring img{height:62px;width:auto;animation:breathe 1.6s ease-in-out infinite}
+.loading p{color:var(--mu);font-size:15px;font-weight:700}
+.dots i{font-style:normal;animation:dot 1.2s infinite;opacity:0}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{50%{transform:scale(.92);opacity:.75}}
+@keyframes dot{30%,70%{opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* ---------- شاشة الدخول ---------- */
+.auth{position:relative;overflow:hidden}
+.a-bg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.a-bg i{position:absolute;width:60vmax;height:60vmax;border-radius:50%;filter:blur(60px);opacity:.16;background:var(--ac)}
+.a-bg i:first-child{top:-30vmax;right:-20vmax;animation:drift1 14s ease-in-out infinite alternate}
+.a-bg i:last-child{bottom:-35vmax;left:-25vmax;opacity:.1;animation:drift2 18s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(-8vmax,10vmax)}}
+@keyframes drift2{to{transform:translate(10vmax,-8vmax)}}
+.auth .card{position:relative;animation:cardin .7s cubic-bezier(.2,.9,.3,1) both;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.auth .card>*{animation:rise .55s ease both}
+.auth .card>*:nth-child(1){animation-delay:.1s}.auth .card>*:nth-child(2){animation-delay:.18s}.auth .card>*:nth-child(3){animation-delay:.26s}.auth .card>*:nth-child(4){animation-delay:.34s}.auth .card>*:nth-child(5){animation-delay:.42s}.auth .card>*:nth-child(6){animation-delay:.5s}
+@keyframes cardin{from{transform:translateY(30px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+@keyframes rise{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.a-logo{align-self:center;width:84px;height:84px;border-radius:24px;background:var(--ac);display:flex;align-items:center;justify-content:center}
+.auth .a-logo img{height:56px}
+.auth .a-logo .lg-w{display:none}.auth .a-logo .lg-b{display:block}
+.a-time{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0 10px;border-bottom:1px solid var(--ln)}
+.a-time .clock{font-size:52px}
+.a-greet{font-size:14px;font-weight:800;color:var(--mu)}
+.a-date{font-size:15px;font-weight:700}
+.a-hijri{font-size:13px;color:var(--mu)}
+.auth .btn.pri{transition:transform .15s ease, box-shadow .2s ease}
+.auth .btn.pri:active{transform:scale(.97)}
+.auth input{transition:border-color .2s ease, box-shadow .2s ease}
+.auth input:focus{box-shadow:0 0 0 3px rgba(195,250,79,.25)}
+@media (prefers-reduced-motion: reduce){#intro *,.auth .card,.auth .card>*,.a-bg i,.l-ring::before,.l-ring img,.dots i{animation:none!important}.dots i{opacity:1}}

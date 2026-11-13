@@ -282,7 +282,9 @@
 
   function vSoon(name) { return shell(head(name, 'هذا القسم لم يُبنَ بعد', '') + '<p class="empty">القسم مصمم على لوحة التصميم، وسيُبنى في خطوة قادمة.</p>'); }
 
-  function authCard(inner) { return '<div class="auth"><div class="card"><img class="lg-w" src="' + LOGO_W + '" alt="شعار شفق"><img class="lg-b" src="' + LOGO_B + '" alt="شعار شفق">' + inner + '</div></div>'; }
+  function vLoading() { return '<div class="loading"><div class="l-ring"><img class="lg-w" src="' + LOGO_W + '" alt="شعار شفق"><img class="lg-b" src="' + LOGO_B + '" alt="شعار شفق"></div><p>جارٍ تجهيز مكتبك<span class="dots"><i>.</i><i>.</i><i>.</i></span></p></div>'; }
+  function authTime() { var p = longDates().split(' · '); return '<div class="a-time"><span class="a-greet">' + h(greet()) + '</span><span class="clock" id="clock"></span><span class="a-date">' + h(p[0] || '') + '</span>' + (p[1] ? '<span class="a-hijri">' + h(p[1]) + '</span>' : '') + '</div>'; }
+  function authCard(inner) { return '<div class="auth"><div class="a-bg"><i></i><i></i></div><div class="card"><div class="a-logo"><img class="lg-w" src="' + LOGO_W + '" alt="شعار شفق"><img class="lg-b" src="' + LOGO_B + '" alt="شعار شفق"></div>' + authTime() + inner + '</div></div>'; }
   function vSetup() { return authCard('<h1>إعداد نظام شفق</h1><p>أول دخول: أنشئ حساب المدير.</p><form class="fld" data-form="setup" style="gap:14px"><div class="fld"><label for="s_name">الاسم</label><input id="s_name" name="name" required></div><div class="fld"><label for="s_phone">رقم الموبايل</label><input id="s_phone" name="phone" type="tel" required></div><div class="fld"><label for="s_pass">كلمة السر</label><input id="s_pass" name="pass" type="password" minlength="6" required></div><p class="err" id="aerr"></p><button class="btn pri" type="submit">إنشاء الحساب والدخول</button></form>'); }
   function vLogin() { return authCard('<h1>تسجيل الدخول</h1><p>شفق ميديا · نظام إدارة الأعمال</p><form class="fld" data-form="login" style="gap:14px"><div class="fld"><label for="l_phone">رقم الموبايل</label><input id="l_phone" name="phone" type="tel" required></div><div class="fld"><label for="l_pass">كلمة السر</label><input id="l_pass" name="pass" type="password" required></div><p class="err" id="aerr"></p><button class="btn pri" type="submit">دخول</button></form><p>نسيت كلمة السر؟ اطلب من المدير إعادة تعيينها.</p>'); }
 
@@ -1025,7 +1027,7 @@
   /* ---------- التشغيل ---------- */
   function render() {
     var app = document.getElementById('app'), r = route(), html;
-    if (ONLINE && !state.ready) html = authCard('<h1>جارٍ التحميل…</h1>');
+    if (ONLINE && !state.ready) html = vLoading();
     else if (ONLINE && state.err) html = authCard('<h1>تعذر الاتصال</h1><p>' + h(state.err) + '</p>' + btn('إعادة المحاولة', 'retry', {}, 'pri'));
     else if (ONLINE && !SRV.hasSession()) html = state.needSetup ? vSetup() : vLogin();
     else if (ONLINE && !me()) html = authCard('<h1>الحساب غير مفعّل</h1><p>هذا الحساب لا يملك ملفاً في النظام أو تم إيقافه. راجع المدير.</p>' + btn('تسجيل الخروج', 'logout'));
@@ -1052,10 +1054,10 @@
     if (same) Array.prototype.forEach.call(app.querySelectorAll('details.tile'), function (d, i) { if (openTiles[i] != null) d.open = openTiles[i]; });
     tick();
   }
-  function tick() { var c = document.getElementById('clock'); if (c) { var d = new Date(); c.textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); } }
+  function tick() { var c = document.getElementById('clock'); if (c) { var d = new Date(), t = pad(d.getHours()) + ':' + pad(d.getMinutes()); if (c.textContent !== t) c.textContent = t; } }
   function start() {
     if (localStorage.getItem(TKEY) === 'light') { document.body.classList.remove('t-dark'); document.body.classList.add('t-light'); }
-    load(); if (ONLINE) boot(); else render(); setInterval(tick, 15000);
+    load(); if (ONLINE) boot(); else render(); setInterval(tick, 5000);
     if (ONLINE) {
       var soft = function () { var a = document.activeElement, typing = a && /INPUT|TEXTAREA|SELECT/.test(a.tagName); if (SRV.hasSession() && state.ready && document.getElementById('modal').hidden && !typing) SRV.idle().then(resync); };
       window.addEventListener('focus', soft); setInterval(soft, 120000);
