@@ -355,6 +355,13 @@
     addRole: function (d) { var c = byId('clients', d.id); c.roles = normRoles(c).concat([{ role: '', user: '' }]); save(); render(); },
     delRole: function (d) { var c = byId('clients', d.id), rs = normRoles(c).slice(); rs.splice(+d.i, 1); c.roles = rs; save(); render(); },
     clientLogin: function (d) { clientLoginForm(byId('clients', d.id)); },
+    clientPass: function (d) {
+      var u = byId('users', d.uid);
+      openForm('كلمة سر جديدة لـ ' + u.name, [{ k: 'pass', label: 'كلمة السر الجديدة', type: 'password', req: true }], function (v) {
+        if (v.pass.length < 6) return { err: 'كلمة السر 6 أحرف على الأقل.' };
+        return SRV.rpc('admin_set_password', { p_user: u.id, p_pass: v.pass }).then(function () { return 'تغيّرت كلمة سر العميل'; }, function (e) { return { err: /admin_set_password|function/i.test(e.message) ? 'شغّل ملف schema5.sql بـ Supabase مرة وحدة.' : e.message }; });
+      }, 'رقم الدخول: ' + (u.login_phone || u.phone));
+    },
     toggleClientLogin: function (d) { var u = byId('users', d.uid); u.active = u.active === false; save(); render(); toast(u.active ? 'فُعّل دخول العميل' : 'أُوقف دخول العميل'); },
     delMove: function (d) { if (!confirm('حذف الحركة نهائياً من السجل؟ لا يمكن التراجع.')) return; db.moves = db.moves.filter(function (m) { return m.id !== d.id; }); save(); render(); toast('حُذفت الحركة'); },
     addDebt: function () {
@@ -386,14 +393,13 @@
   function memberForm(u) {
     var edit = !!u; u = u || {};
     var fields = [{ k: 'name', label: 'الاسم', req: true, value: u.name }, { k: 'title', label: 'الصفة', ph: 'اختر أو اكتب صفة جديدة', value: u.title, list: titleList() }, { k: 'gender', label: 'الجنس', type: 'select', options: [['m', 'ذكر'], ['f', 'أنثى']], value: u.gender || 'm' }, { k: 'phone', label: 'رقم الموبايل', type: 'tel', req: true, value: u.phone }, { k: 'kind', label: 'نوع العقد', type: 'select', options: [['freelancer', 'فريلانسر'], ['employee', 'موظف']], value: u.kind || 'freelancer' }, { k: 'contract', label: 'قيمة العقد بالدولار', type: 'number', value: u.contract }, { k: 'pass', label: edit ? 'كلمة سر جديدة (اتركها فارغة للإبقاء)' : 'كلمة سر مؤقتة', type: 'password', req: !edit }];
-    if (ONLINE && edit) fields.pop();
     openForm(edit ? 'تعديل العضو' : 'عضو جديد', fields, function (v) {
       var ph = normPhone(v.phone); if (!ph) return { err: 'أدخل رقم موبايل صحيحاً.' };
       if (db.users.some(function (x) { return x.id !== u.id && (normPhone(x.phone) === ph || (!edit && normPhone(x.login_phone) === ph)); })) return { err: 'هذا الرقم مسجل لعضو آخر.' };
       if (v.pass && v.pass.length < 6) return { err: 'كلمة السر 6 أحرف على الأقل.' };
       var o = { name: v.name.trim(), title: v.title.trim(), gender: v.gender, phone: v.phone.trim(), kind: v.kind, contract: num(v.contract) };
       if (ONLINE) {
-        if (edit) { Object.assign(u, o); return 'حُفظ العضو'; }
+        if (edit) { Object.assign(u, o); if (!v.pass) return 'حُفظ العضو'; return SRV.rpc('admin_set_password', { p_user: u.id, p_pass: v.pass }).then(function () { return 'حُفظ العضو وتغيّرت كلمة السر'; }, function (e) { return { err: /admin_set_password|function/i.test(e.message) ? 'لتغيير كلمة السر شغّل ملف schema5.sql بـ Supabase مرة وحدة.' : e.message }; }); }
         return SRV.signUp(v.phone, v.pass, false).then(function (id) {
           db.users.push(Object.assign({ id: id, role: 'member', active: true, login_phone: ph, email: '', city: '', insta: '', bio: '', photo: '' }, o)); return 'حُفظ العضو';
         });
@@ -616,7 +622,7 @@
 
   /* ---------- بوابة العميل ---------- */
   function clientUser(cl) { return db.users.filter(function (u) { return u.role === 'client' && u.client_id === cl.id; })[0]; }
-  function clientLoginBtn(cl) { var u = clientUser(cl); return u ? btn(u.active === false ? 'تفعيل دخول العميل' : 'إيقاف دخول العميل', 'toggleClientLogin', { uid: u.id }) : btn('إنشاء دخول للعميل', 'clientLogin', { id: cl.id }); }
+  function clientLoginBtn(cl) { var u = clientUser(cl); return u ? btn(u.active === false ? 'تفعيل دخول العميل' : 'إيقاف دخول العميل', 'toggleClientLogin', { uid: u.id }) + (ONLINE ? btn('كلمة سر العميل', 'clientPass', { uid: u.id }) : '') : btn('إنشاء دخول للعميل', 'clientLogin', { id: cl.id }); }
   function clientLoginForm(cl) {
     openForm('دخول العميل: ' + cl.name, [{ k: 'phone', label: 'رقم موبايل العميل (اسم المستخدم)', type: 'tel', req: true }, { k: 'pass', label: 'كلمة السر', type: 'password', req: true }], function (v) {
       var ph = normPhone(v.phone); if (!ph) return { err: 'أدخل رقم موبايل صحيحاً.' };
@@ -736,6 +742,7 @@
     var st = pushStatus(), txt = { granted: 'مفعّلة على هذا الجهاز ✓', 'default': 'غير مفعّلة على هذا الجهاز', denied: 'محظورة من المتصفح. افتح إعدادات الموقع (القفل جنب الرابط) واسمح بالإشعارات.', ios: 'على الآيفون لازم تضيف النظام للشاشة الرئيسية أولاً، وتفتحه من الأيقونة.', unsupported: 'هذا المتصفح لا يدعم الإشعارات. جرّب كروم.', off: 'الإشعارات تشتغل بعد ربط النظام بالسيرفر.' }[st];
     return tile('الإشعارات', txt, '<p class="mu">بتوصلك إشعارات المهام والدفعات والمنشورات، وتحية الصبح والمسا باسمك.</p><div class="acts">' + (st === 'default' ? btn('تفعيل الإشعارات', 'pushOn', {}, 'pri') : '') + (st === 'granted' ? btn('إرسال إشعار تجريبي', 'pushTest', {}, 'pri') : '') + '</div>');
   }
+  function alertBox(t, msg) { openForm(t, [], function () { return ''; }, msg, 'تمام'); }
   function notify(items) { if (ONLINE && SRV.notify) SRV.notify(items); }
   function amountTxt(amt, cur) { return cur === 'USD' ? usd(amt) : syp(amt); }
   Object.assign(acts, {
@@ -747,7 +754,12 @@
       }).catch(function (e) { toast('تعذر تفعيل الإشعارات: ' + (e && e.message || e)); render(); });
     },
     pushLater: function () { try { localStorage.setItem('shafq_push_later', today()); } catch (e) {} render(); },
-    pushTest: function () { pushSub(true).then(function () { return SRV.notify([{ to: [me().id], title: 'أهلاً ' + (me().gender === 'f' ? 'أستاذة ' : 'أستاذ ') + me().name + ' 🔔', body: 'الإشعارات شغالة على هذا الجهاز.' }]); }).then(function (r) { toast(r && r.sent ? 'انبعت الإشعار' : 'ما وصل شي. تأكد إنه دالة الإشعارات منشورة بـ Supabase.'); }, function (e) { toast('تعذر الإرسال: ' + e.message); }); }
+    pushTest: function () { pushSub(true).then(function () { return SRV.notify([{ to: [me().id], title: 'أهلاً ' + (me().gender === 'f' ? 'أستاذة ' : 'أستاذ ') + me().name + ' 🔔', body: 'الإشعارات شغالة على هذا الجهاز.' }]); }).then(function (r) {
+        if (r && r.sent) return toast('انبعت الإشعار ✓');
+        var why = !r ? 'ما قدرت أوصل لدالة push بـ Supabase.' : r.errors && r.errors.length ? 'السبب: ' + r.errors.join(' | ') : !r.subs ? 'هالجهاز مو محفوظ بقاعدة البيانات. تأكد إنك شغّلت schema4.sql، وبعدين اكبس تفعيل من جديد.' : 'ما وصل لسبب مو معروف.';
+        if (r && r.key && PUSH_KEY.slice(0, 12) !== r.key) why = 'المفتاح VAPID_PUBLIC بـ Supabase مو نفس مفتاح النظام. انسخه من جديد من push-secrets.txt.';
+        alertBox('ما وصل الإشعار', why);
+      }, function (e) { alertBox('ما وصل الإشعار', 'تعذر الإرسال: ' + e.message); }); }
   });
 
 
