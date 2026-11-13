@@ -104,3 +104,29 @@ main{flex:999 1 560px;min-width:0;padding:24px 32px 40px;display:flex;flex-direc
 .cald.now{border:2px solid var(--ac)}
 .cald b{font-size:15px}
 .cald span{font-size:12px;line-height:1.5;background:var(--p2);border-radius:6px;padding:2px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav{position:relative}
+.timebox{margin-top:auto;border-top:1px solid var(--ln);padding:16px 8px 0;display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--mu)}
+.timebox .clock{font-size:34px;color:var(--act)}
+.portal{max-width:1180px;margin:0 auto;padding:24px 24px 40px;display:flex;flex-direction:column;gap:20px}
+.ptop{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--ln);padding-bottom:16px}
+.ptop .brand{padding:0}
+.hello h1{font-size:34px;font-weight:900;line-height:1.3}
+.week.now{outline:2px solid var(--ac)}
+.post{display:grid;grid-template-columns:150px 110px minmax(0,1fr) 130px auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--ln);font-size:14px}
+.post:last-child{border-bottom:0}
+.post b{display:block}
+.post .mu{font-size:13px}
+.post.late{background:rgba(255,180,168,.07);border-radius:10px;padding:10px}
+.type{font-size:13px;font-weight:700;background:var(--p2);border-radius:8px;padding:3px 10px;text-align:center;white-space:nowrap}
+.st{font-size:13px;font-weight:800;display:inline-flex;align-items:center;gap:7px}
+.st::before{content:"";width:9px;height:9px;border-radius:50%;background:currentColor}
+.st.done{color:var(--act)}.st.ready{color:#3D8BD6}.st.plan{color:var(--mu)}.st.late{color:var(--bad)}
+.t-dark .st.ready{color:#8EC5FF}
+.btn.wa{border-color:#25D366}
+.paid{color:var(--act);font-size:13px}.due{color:#C98A00;font-size:13px}.t-dark .due{color:#FFD27A}
+.pact{text-align:left}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--ln);padding-top:16px}
+@media (max-width:760px){.post{grid-template-columns:1fr 1fr}.post>span:nth-child(3){grid-column:1/-1}.pact{grid-column:1/-1;text-align:right}}
+.post.done,.post.done *{text-decoration:none!important;opacity:1}
+.post.done>span:nth-child(3){color:var(--mu)}
+.portal .kpi.hi b{font-size:26px;line-height:1.3}

@@ -128,6 +128,7 @@
     clear: function () { setSess(null); shadow = null; },
     pull: pull, push: push,
     itemsMissing: function () { return noItems; },
+    rpc: function (name, body) { return call('POST', '/rest/v1/rpc/' + name, body || {}); },
     idle: function () { return chain.catch(function () {}); }
   };
 })();
