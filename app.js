@@ -274,6 +274,7 @@
     var c = head('الملف الشخصي', isMgr() ? 'المدير · يرى كل شيء' : 'عضو الفريق', btn('تسجيل الخروج', 'logout'));
     c += '<div class="tiles"><section class="tile" style="padding:24px;display:flex;flex-direction:column;align-items:center;gap:12px"><span class="av" style="width:140px;height:140px;font-size:56px;border-width:3px">' + (u.photo ? '<img src="' + h(u.photo) + '" alt="صورة الملف الشخصي">' : h((u.name || '؟').charAt(0))) + '</span><b style="font-size:20px">' + h(u.name) + '</b><span class="mu">' + h(u.title || '') + '</span><div class="acts"><label class="btn pri" for="photo">رفع صورة</label><input id="photo" type="file" accept="image/*" data-chg="photo" hidden>' + (u.photo ? btn('حذف الصورة', 'delPhoto') : '') + '</div></section>';
     c += '<section class="tile" style="padding:24px;grid-column:span 2;min-width:0"><form class="form" data-form="profile">' + f('name', 'الاسم') + f('title', 'الصفة أو العنوان') + '<div class="fld"><label for="p_gender">الجنس</label><select id="p_gender" name="gender"><option value="m"' + (u.gender !== 'f' ? ' selected' : '') + '>ذكر</option><option value="f"' + (u.gender === 'f' ? ' selected' : '') + '>أنثى</option></select></div>' + f('phone', 'رقم التواصل' + (ONLINE && u.login_phone ? ' (رقم الدخول: ' + u.login_phone + ')' : ''), 'tel') + f('email', 'الإيميل', 'email') + f('city', 'المدينة') + f('insta', 'حساب إنستغرام') + f('bio', 'نبذة', 'area', true) + '<div class="fld wide"><p class="err" id="perr"></p><div class="acts"><button class="btn pri" type="submit">حفظ التعديلات</button>' + btn('تغيير كلمة السر', 'chPass') + '</div></div></form></section></div>';
+    c += pushTile();
     if (isMgr()) c += tile('بوابة العملاء', 'رقم الواتساب: ' + h(db.settings.shafq_phone || me().phone || 'غير محدد'), '<p class="mu">زر «شو صار معكم؟» عند المنشور المتأخر، وزر «تواصل مع شفق» في بوابة العميل، يفتحان واتساب على هذا الرقم.</p><div class="acts"><label for="shafqph" class="mu">رقم شفق</label><input id="shafqph" type="tel" data-chg="shafqph" value="' + h(db.settings.shafq_phone || me().phone || '') + '" style="min-height:44px;padding:0 16px;background:var(--p2);border:1px solid var(--ln);border-radius:999px"></div>');
     if (isMgr() && !ONLINE) c += tile('النسخ الاحتياطي', 'البيانات محفوظة على هذا الجهاز', '<p class="mu">في هذه النسخة البيانات محفوظة في متصفح هذا الجهاز فقط. نزّل نسخة احتياطية بانتظام.</p><div class="acts">' + btn('تنزيل نسخة احتياطية', 'backup') + '<label class="btn" for="restore">استرجاع نسخة</label><input id="restore" type="file" accept="application/json" data-chg="restore" hidden></div>');
     return shell(c);
@@ -312,7 +313,7 @@
   var acts = {
     close: closeForm,
     theme: function () { var l = document.body.classList.toggle('t-light'); document.body.classList.toggle('t-dark', !l); localStorage.setItem(TKEY, l ? 'light' : 'dark'); render(); },
-    logout: function () { pstate.data = null; pstate.month = ''; if (ONLINE) { SRV.idle().then(function () { return SRV.signOut(); }).then(function () { db = blank(); location.hash = '#/'; checkSetup(); }); return; } localStorage.removeItem(SKEY); location.hash = '#/'; render(); },
+    logout: function () { pstate.data = null; pstate.month = ''; if (ONLINE) { SRV.idle().then(pushOff).then(function () { return SRV.signOut(); }).then(function () { db = blank(); location.hash = '#/'; checkSetup(); }); return; } localStorage.removeItem(SKEY); location.hash = '#/'; render(); },
     retry: function () { boot(); },
     addClient: function () { clientForm(null); },
     editClient: function (d) { clientForm(byId('clients', d.id)); },
@@ -321,7 +322,9 @@
     toggleMember: function (d) { var u = byId('users', d.id); u.active = u.active === false; save(); render(); toast(u.active ? 'تم التفعيل' : 'تم الإيقاف'); },
     addTask: function (d) {
       openForm('مهمة جديدة', [{ k: 'title', label: 'المهمة', req: true, wide: true }, { k: 'user_id', label: 'لمن', type: 'select', options: memberOpts(), value: me().id }, { k: 'client_id', label: 'العميل', type: 'select', options: clientOpts(), value: d.client || '' }, { k: 'due', label: 'موعد التسليم', type: 'date', value: today(), req: true }], function (v) {
-        db.tasks.push({ id: uid(), title: v.title.trim(), user_id: v.user_id, client_id: v.client_id, client_name: v.client_id ? clientName(v.client_id) : '', due: v.due, done: false, done_at: '' }); return 'أُضيفت المهمة';
+        db.tasks.push({ id: uid(), title: v.title.trim(), user_id: v.user_id, client_id: v.client_id, client_name: v.client_id ? clientName(v.client_id) : '', due: v.due, done: false, done_at: '' });
+        if (v.user_id && v.user_id !== me().id) notify([{ to: [v.user_id], title: 'مهمة جديدة 📋', body: v.title.trim() + ' · التسليم ' + dateAr(v.due), tag: 'task' }]);
+        return 'أُضيفت المهمة';
       });
     },
     delTask: function (d) { if (!confirm('حذف المهمة؟')) return; db.tasks = db.tasks.filter(function (t) { return t.id !== d.id; }); save(); render(); },
@@ -343,6 +346,8 @@
         if (svc && serviceList().indexOf(svc) < 0) { db.settings.services = (db.settings.services || []).concat([svc]); }
         if (v.dir === 'in' && v.client_id) { rcv = nextNo('RCV', v.date); db.items.push({ id: uid(), kind: 'paper', status: 'سارية', created: today(), code: 'RCV', no: rcv, name: clientName(v.client_id), amount: amt, cur: v.cur, date: v.date, move_id: mid, notes: svc }); }
         db.moves.push({ id: mid, date: v.date, dir: v.dir, cat: v.cat, amount: amt, cur: v.cur, rate: rate, usd: v.cur === 'USD' ? amt : amt / rate, note: v.note.trim(), service: svc, receipt: rcv, client_id: v.client_id, user_id: v.user_id, item_id: v.item_id || '', created_by: me().id, is_void: false });
+        if (v.dir === 'in' && v.client_id) notify([{ to: { client: v.client_id }, title: 'وصلتنا دفعتكم 🙏', body: amountTxt(amt, v.cur) + (svc ? ' عن ' + svc : '') + (rcv ? ' · وصل ' + rcv : '') + '. شكراً لثقتكم', tag: 'pay' }]);
+        if (v.dir === 'out' && v.user_id && v.user_id !== me().id) { var pu = byId('users', v.user_id) || {}; notify([{ to: [v.user_id], title: 'سجّلنا دفعة ' + (pu.gender === 'f' ? 'إلكِ' : 'إلك') + ' 💸', body: amountTxt(amt, v.cur) + (v.note.trim() ? ' · ' + v.note.trim() : ''), tag: 'pay' }]); }
         return rcv ? 'سُجّلت الدفعة · وصل ' + rcv : 'سُجّلت الحركة';
       }, 'الحركة بالليرة تُحوَّل إلى الدولار بسعر يومها، ويُحفظ السعر معها.');
     },
@@ -656,7 +661,7 @@
     if (!d) return '<div class="portal">' + top + (pstate.err ? '<p class="warn">تعذر تحميل البوابة: ' + h(pstate.err) + '</p>' + btn('إعادة المحاولة', 'portalRefresh', {}, 'pri') : '<p class="empty">جارٍ التحميل…</p>') + '</div>';
     var cl = d.client || {}, ym = pstate.month || t.slice(0, 7), mname;
     try { mname = new Intl.DateTimeFormat('ar-SY-u-nu-latn', { month: 'long', year: 'numeric' }).format(new Date(ym + '-15T12:00:00')); } catch (x) { mname = ym; }
-    var c = top + '<div class="hello"><h1>' + greet() + '، ' + h(cl.name || '') + '</h1><p class="mu">' + h(longDates()) + '</p></div>';
+    var c = top + pushBanner() + '<div class="hello"><h1>' + greet() + '، ' + h(cl.name || '') + '</h1><p class="mu">' + h(longDates()) + '</p></div>';
     // plan
     var posts = (d.posts || []).filter(function (p) { return (p.date || '').slice(0, 7) === ym; }).sort(function (a, b) { return ((a.date || '') + (a.time || '')) < ((b.date || '') + (b.time || '')) ? -1 : 1; });
     var done = posts.filter(function (p) { return p.status === 'منشور'; }).length, types = {};
@@ -693,19 +698,71 @@
     portalRefresh: function () { pstate.data = null; render(); }
   });
 
+
+  /* ---------- إشعارات الجوال ---------- */
+  var PUSH_KEY = CFG.pushKey || '', pushSynced = false;
+  function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
+  function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  function pushOK() { return ONLINE && !!PUSH_KEY && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+  function pushStatus() {
+    if (!ONLINE || !PUSH_KEY) return 'off';
+    if (isIOS() && !standalone()) return 'ios';
+    if (!pushOK()) return 'unsupported';
+    return Notification.permission; // default | granted | denied
+  }
+  function keyBytes(b) { b = b.replace(/-/g, '+').replace(/_/g, '/'); while (b.length % 4) b += '='; var r = atob(b), o = new Uint8Array(r.length); for (var i = 0; i < r.length; i++) o[i] = r.charCodeAt(i); return o; }
+  function pushSub(create) {
+    return swReg().then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (s) { return s || (create ? reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUSH_KEY) }) : null); });
+    }).then(function (s) { if (!s) return null; var j = s.toJSON(); return SRV.rpc('save_push_sub', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth }).then(function () { return s; }); });
+  }
+  function swReg() { return navigator.serviceWorker.getRegistration().then(function (reg) { if (reg) return reg; return navigator.serviceWorker.register('sw.js').then(function () { return navigator.serviceWorker.ready; }); }); }
+  function pushSync() { if (pushSynced || pushStatus() !== 'granted') return; pushSynced = true; pushSub(true).catch(function () { pushSynced = false; }); }
+  function pushOff() {
+    pushSynced = false;
+    if (!pushOK() || !SRV.hasSession()) return Promise.resolve();
+    return navigator.serviceWorker.getRegistration().then(function (reg) { return reg ? reg.pushManager.getSubscription() : null; }).then(function (s) {
+      if (!s) return; return SRV.rpc('delete_push_sub', { p_endpoint: s.endpoint }).catch(function () {}).then(function () { return s.unsubscribe(); });
+    }).catch(function () {});
+  }
+  function pushBanner() {
+    var st = pushStatus();
+    try { if (localStorage.getItem('shafq_push_later') === today()) return ''; } catch (e) {}
+    if (st === 'default') return '<div class="pushbar"><span>🔔 فعّل الإشعارات لتوصلك المهام والدفعات وتحية الصبح والمسا على جهازك.</span><span class="acts">' + btn('تفعيل الإشعارات', 'pushOn', {}, 'pri') + btn('لاحقاً', 'pushLater') + '</span></div>';
+    if (st === 'ios') return '<div class="pushbar"><span>🔔 على الآيفون: من زر المشاركة اختر «إضافة إلى الشاشة الرئيسية»، وافتح النظام من الأيقونة لتقدر تفعّل الإشعارات.</span><span class="acts">' + btn('تمام', 'pushLater') + '</span></div>';
+    return '';
+  }
+  function pushTile() {
+    var st = pushStatus(), txt = { granted: 'مفعّلة على هذا الجهاز ✓', 'default': 'غير مفعّلة على هذا الجهاز', denied: 'محظورة من المتصفح. افتح إعدادات الموقع (القفل جنب الرابط) واسمح بالإشعارات.', ios: 'على الآيفون لازم تضيف النظام للشاشة الرئيسية أولاً، وتفتحه من الأيقونة.', unsupported: 'هذا المتصفح لا يدعم الإشعارات. جرّب كروم.', off: 'الإشعارات تشتغل بعد ربط النظام بالسيرفر.' }[st];
+    return tile('الإشعارات', txt, '<p class="mu">بتوصلك إشعارات المهام والدفعات والمنشورات، وتحية الصبح والمسا باسمك.</p><div class="acts">' + (st === 'default' ? btn('تفعيل الإشعارات', 'pushOn', {}, 'pri') : '') + (st === 'granted' ? btn('إرسال إشعار تجريبي', 'pushTest', {}, 'pri') : '') + '</div>');
+  }
+  function notify(items) { if (ONLINE && SRV.notify) SRV.notify(items); }
+  function amountTxt(amt, cur) { return cur === 'USD' ? usd(amt) : syp(amt); }
+  Object.assign(acts, {
+    pushOn: function () {
+      if (pushStatus() !== 'default') { render(); return; }
+      Notification.requestPermission().then(function (p) {
+        if (p !== 'granted') { toast('ما انسمح بالإشعارات'); render(); return; }
+        return pushSub(true).then(function () { pushSynced = true; toast('تفعّلت الإشعارات 🔔'); render(); });
+      }).catch(function (e) { toast('تعذر تفعيل الإشعارات: ' + (e && e.message || e)); render(); });
+    },
+    pushLater: function () { try { localStorage.setItem('shafq_push_later', today()); } catch (e) {} render(); },
+    pushTest: function () { pushSub(true).then(function () { return SRV.notify([{ to: [me().id], title: 'أهلاً ' + (me().gender === 'f' ? 'أستاذة ' : 'أستاذ ') + me().name + ' 🔔', body: 'الإشعارات شغالة على هذا الجهاز.' }]); }).then(function (r) { toast(r && r.sent ? 'انبعت الإشعار' : 'ما وصل شي. تأكد إنه دالة الإشعارات منشورة بـ Supabase.'); }, function (e) { toast('تعذر الإرسال: ' + e.message); }); }
+  });
+
   /* ---------- الأحداث ---------- */
   function formVals(f) { var v = {}; Array.prototype.forEach.call(f.elements, function (e) { if (e.name) v[e.name] = e.value; }); return v; }
   document.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]'); if (!el) { var mn = document.querySelector('details.menu[open]'); if (mn && !e.target.closest('details.menu')) mn.removeAttribute('open'); return; }
     var a = el.getAttribute('data-act'); if (!acts[a]) return;
-    if (!isMgr() && ['close', 'theme', 'logout', 'retry', 'delPhoto', 'chPass', 'portalRefresh', 'portalMonth'].indexOf(a) < 0) return;
+    if (!isMgr() && ['close', 'theme', 'logout', 'retry', 'delPhoto', 'chPass', 'portalRefresh', 'portalMonth', 'pushOn', 'pushLater', 'pushTest'].indexOf(a) < 0) return;
     acts[a](el.dataset);
   });
   document.addEventListener('change', function (e) {
     var el = e.target, k = el.getAttribute && el.getAttribute('data-chg'); if (!k) return;
     if (k === 'rate' && isMgr()) { var r = num(el.value); if (r > 0) { db.rates[today()] = r; toast('حُفظ سعر الصرف'); } else delete db.rates[today()]; save(); render(); }
-    if (k === 'task') { var t = byId('tasks', el.dataset.id); if (t && (isMgr() || t.user_id === me().id)) { t.done = el.checked; t.done_at = el.checked ? today() : ''; save(); render(); } }
-    if (k === 'istatus' && isMgr()) { var it = byId('items', el.dataset.id); if (it) { it.status = el.value; save(); render(); } }
+    if (k === 'task') { var t = byId('tasks', el.dataset.id); if (t && (isMgr() || t.user_id === me().id)) { t.done = el.checked; t.done_at = el.checked ? today() : ''; save(); render(); if (el.checked && !isMgr()) notify([{ to: 'managers', title: (me().gender === 'f' ? 'أنجزت ' : 'أنجز ') + me().name + ' مهمة ✅', body: t.title, tag: 'done' }]); } }
+    if (k === 'istatus' && isMgr()) { var it = byId('items', el.dataset.id); if (it) { var was = it.status; it.status = el.value; save(); render(); if (it.kind === 'post' && el.value === 'منشور' && was !== 'منشور' && it.client_id) notify([{ to: { client: it.client_id }, title: 'نزل منشور جديد 🎉', body: '«' + (it.name || '') + '»' + (it.type ? ' · ' + it.type : ''), tag: 'post' }]); } }
     if ((k === 'rolename' || k === 'roleuser') && isMgr()) { var c = byId('clients', el.dataset.id), rs = normRoles(c).slice(), i = +el.dataset.i; rs[i] = Object.assign({}, rs[i]); rs[i][k === 'rolename' ? 'role' : 'user'] = k === 'rolename' ? el.value.trim() : el.value; c.roles = rs; save(); render(); }
     if (k === 'shafqph' && isMgr()) { db.settings.shafq_phone = el.value.trim(); save(); render(); toast('حُفظ رقم شفق'); }
     if (k === 'photo' && el.files[0]) { var rd = new FileReader(); rd.onload = function () { var img = new Image(); img.onload = function () { var s = 256, cv = document.createElement('canvas'); cv.width = cv.height = s; var m = Math.min(img.width, img.height); cv.getContext('2d').drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, s, s); me().photo = cv.toDataURL('image/jpeg', 0.85); save(); render(); toast('حُفظت الصورة'); }; img.src = rd.result; }; rd.readAsDataURL(el.files[0]); }
@@ -771,6 +828,8 @@
     else if (r === '#/reporter') html = vReporter();
     else if (r.indexOf('#/soon/') === 0) html = vSoon(decodeURIComponent(r.slice(7)));
     else html = vDash();
+    if (me() && me().role !== 'client' && (r === '#/' || r === '')) html = html.replace(/<div class="head"/, function (m) { return pushBanner() + m; });
+    if (ONLINE && SRV.hasSession() && me() && state.ready) pushSync();
     var openTiles = Array.prototype.map.call(app.querySelectorAll('details.tile'), function (d) { return d.open; }), same = app.getAttribute('data-r') === r;
     app.innerHTML = html; app.setAttribute('data-r', r);
     if (same) Array.prototype.forEach.call(app.querySelectorAll('details.tile'), function (d, i) { if (openTiles[i] != null) d.open = openTiles[i]; });

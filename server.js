@@ -129,6 +129,7 @@
     pull: pull, push: push,
     itemsMissing: function () { return noItems; },
     rpc: function (name, body) { return call('POST', '/rest/v1/rpc/' + name, body || {}); },
+    notify: function (items) { if (!sess) return Promise.resolve(null); return call('POST', '/functions/v1/push', { action: 'notify', items: items }).catch(function () { return null; }); },
     idle: function () { return chain.catch(function () {}); }
   };
 })();
